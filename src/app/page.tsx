@@ -1,103 +1,172 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
+import { ModifyImage } from "@/server/modify-image";
+import { SpinnerIcon } from "@/components/icons";
+import { GenerateImage } from "@/server/ai";
+import { init } from "next/dist/compiled/webpack/webpack";
 
-export default function Home() {
+
+async function getBase64FromUrl(url: string): Promise<string> {
+  const response = await fetch(url);
+  const blob = await response.blob();
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // The result will be a data URL like "data:image/jpeg;base64,/9j/4AAQ..."
+      const base64String = reader.result as string;
+      // Remove the data URL prefix to get just the base64 string
+      const base64 = base64String.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+//"353d7b0aec0c134064364fb9670ef63e.jpg"
+
+export default function ImageGenerator() {
+  const [initialImage, setInitialImage] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState<string>("");
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  /* const handleImageSelected = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    if (!e.target.files || e.target.files.length === 0) {
+      return;
+    }
+
+    setLoading(true);
+    await handleImageUpload({ imageFile: e.target.files[0] });
+  };*/
+
+  const handleImageSelected = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    if (!e.target.files || e.target.files.length === 0) {
+      return;
+    }
+
+    const localImage = e.target.files[0];
+    const clientSideImageUrl = URL.createObjectURL(localImage);
+    setInitialImage(clientSideImageUrl);
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!initialImage) return;
+
+    setLoading(true);
+
+    const base64Image = await getBase64FromUrl("/1.jpg");
+
+    const modifiedImage = await ModifyImage({
+      base64Image,
+      prompt,
+    });
+
+    if (!modifiedImage) return;
+    const blob = new Blob([modifiedImage], { type: "image/jpeg" });
+    const url = URL.createObjectURL(blob);
+    setGeneratedImage(url);
+    setLoading(false);
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="max-w-2xl mx-auto p-4 md:p-8 flex flex-col gap-4 md:gap-8">
+      <h1>FREAKAZOID</h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
+      {generatedImage && !loading && (
+        <div className="flex flex-col gap-4 w-full">
+          <Image
+            src={generatedImage}
+            alt="Generated image"
+            width={500}
+            height={500}
+            className="w-full rounded-2xl"
+          />
           <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href={generatedImage}
+            download
+            className=" bg-black hover:bg-black/90 text-white text-center  px-6 py-4  rounded-full w-full"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
+            Download Image
           </a>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {!initialImage && (
+          <label
+            htmlFor="file"
+            className="flex flex-col gap-4 items-center justify-center bg-black hover:bg-black/90 px-4 py-2 rounded-2xl border w-full aspect-square text-white text-center cursor-pointer"
+          >
+            [ Select an Image ]
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelected}
+              className="hidden"
+              id="file"
+            />
+          </label>
+        )}
+        {loading && (
+          <div className="flex flex-col gap-4 w-full">
+            <div className="w-full aspect-square rounded-2xl animate-pulse bg-black" />
+            <div className="w-full flex flex-row gap-4 items-center justify-center px-6 py-4  rounded-full bg-black text-black/60 animate-pulse">
+              Loading...
+            </div>
+          </div>
+        )}
+
+        {initialImage && !generatedImage && (
+          <div
+            className={
+              loading ? "hidden" : "flex flex-col gap-4 md:gap-8 w-full"
+            }
+          >
+            <div className="w-full hidden flex-row gap-4 md:gap-8 items-center justify-center px-4 py-2 rounded-xl bg-green-200 text-green-900">
+              Image Uploaded
+            </div>
+            <img
+              src={initialImage}
+              onLoad={() => setLoading(false)}
+              alt="Preview"
+              width={200}
+              height={200}
+              className="object-cover w-full aspect-auto rounded-2xl"
+            />
+            <div className="flex flex-col w-full gap-2">
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                className=" p-6 md:p-8 w-full h-32 md:h-32 uppercase resize-none rounded-2xl bg-black text-white placeholder:text-white/60"
+                placeholder="E.g., Add a huge fur coat to my outfit"
+                required
+              />
+              <button
+                type="submit"
+                className="bg-black text-white py-4 px-6 w-full uppercase rounded-full cursor-pointer hover:bg-black/70"
+                disabled={loading}
+              >
+                {loading ? "Generating..." : "Generate Image"}
+              </button>
+            </div>
+          </div>
+        )}
+      </form>
+
+      {error && (
+        <div className="mt-4 p-2 bg-red-100 text-red-700 rounded">{error}</div>
+      )}
     </div>
   );
 }
