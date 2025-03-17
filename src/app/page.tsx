@@ -7,7 +7,6 @@ import { SpinnerIcon } from "@/components/icons";
 import { GenerateImage } from "@/server/ai";
 import { init } from "next/dist/compiled/webpack/webpack";
 
-
 async function getBase64FromUrl(url: string): Promise<string> {
   const response = await fetch(url);
   const blob = await response.blob();
@@ -30,6 +29,7 @@ async function getBase64FromUrl(url: string): Promise<string> {
 
 export default function ImageGenerator() {
   const [initialImage, setInitialImage] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [prompt, setPrompt] = useState<string>("");
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -53,6 +53,8 @@ export default function ImageGenerator() {
       return;
     }
 
+    setFile(e.target.files[0]);
+
     const localImage = e.target.files[0];
     const clientSideImageUrl = URL.createObjectURL(localImage);
     setInitialImage(clientSideImageUrl);
@@ -61,22 +63,25 @@ export default function ImageGenerator() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!initialImage) return;
+    if (!initialImage || !file) return;
 
     setLoading(true);
+    try {
+      const modifiedImage = await ModifyImage({
+        image: file,
+        prompt,
+      });
 
-    const base64Image = await getBase64FromUrl("/1.jpg");
-
-    const modifiedImage = await ModifyImage({
-      base64Image,
-      prompt,
-    });
-
-    if (!modifiedImage) return;
-    const blob = new Blob([modifiedImage], { type: "image/jpeg" });
-    const url = URL.createObjectURL(blob);
-    setGeneratedImage(url);
-    setLoading(false);
+      if (!modifiedImage) return;
+      const blob = new Blob([modifiedImage], { type: "image/jpeg" });
+      const url = URL.createObjectURL(blob);
+      setGeneratedImage(url);
+      setLoading(false);
+    } catch (error) {
+      console.log(error);
+      setError("Failed to generate image, please try again");
+      setLoading(false);
+    }
   };
 
   return (
@@ -95,7 +100,7 @@ export default function ImageGenerator() {
           <a
             href={generatedImage}
             download
-            className=" bg-black hover:bg-black/90 text-white text-center  px-6 py-4  rounded-full w-full"
+            className=" bg-black hover:bg-black/90 text-white text-center  px-6 py-4  rounded-2xl w-full"
           >
             Download Image
           </a>
@@ -121,7 +126,7 @@ export default function ImageGenerator() {
         {loading && (
           <div className="flex flex-col gap-4 w-full">
             <div className="w-full aspect-square rounded-2xl animate-pulse bg-black" />
-            <div className="w-full flex flex-row gap-4 items-center justify-center px-6 py-4  rounded-full bg-black text-black/60 animate-pulse">
+            <div className="w-full flex flex-row gap-4 items-center justify-center px-6 py-4  rounded-2xl bg-black text-black/60 animate-pulse">
               Loading...
             </div>
           </div>
@@ -154,7 +159,7 @@ export default function ImageGenerator() {
               />
               <button
                 type="submit"
-                className="bg-black text-white py-4 px-6 w-full uppercase rounded-full cursor-pointer hover:bg-black/70"
+                className="bg-black text-white py-4 px-6 w-full uppercase rounded-2xl cursor-pointer hover:bg-black/70"
                 disabled={loading}
               >
                 {loading ? "Generating..." : "Generate Image"}
@@ -165,7 +170,7 @@ export default function ImageGenerator() {
       </form>
 
       {error && (
-        <div className="mt-4 p-2 bg-red-100 text-red-700 rounded">{error}</div>
+        <div className=" px-6 py-4 bg-red-200 text-red-500 rounded-2xl w-full text-center">{error}</div>
       )}
     </div>
   );

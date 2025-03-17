@@ -6,13 +6,20 @@ const apiKey = process.env.GEMINI_API_KEY!;
 const genAI = new GoogleGenerativeAI(apiKey);
 
 export async function ModifyImage({
-  base64Image,
+  image,
   prompt,
 }: {
-  base64Image: string;
+  image: File;
   prompt: string;
 }) {
   console.log("Modifying image...");
+
+  // Convert the file to arrayBuffer
+  const bytes = await image.arrayBuffer();
+  // Convert to Buffer
+  const buffer = Buffer.from(bytes);
+  // Convert to base64
+  const base64String = buffer.toString("base64");
 
   const contents = [
     {
@@ -22,7 +29,7 @@ export async function ModifyImage({
     {
       inlineData: {
         mimeType: "image/jpeg",
-        data: base64Image,
+        data: base64String,
       },
     },
   ];
@@ -43,6 +50,7 @@ export async function ModifyImage({
     if (!response.response.candidates) {
       throw new Error("No response received from model");
     }
+    console.log(response.response.candidates);
     if (!response.response.candidates[0].content) {
       throw new Error("No content in response");
     }
@@ -58,5 +66,6 @@ export async function ModifyImage({
     }
   } catch (error) {
     console.error("Error generating content:", error);
+    throw new Error("Failed to process image, please try again");
   }
 }
