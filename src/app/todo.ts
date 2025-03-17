@@ -41,3 +41,21 @@ async function handleImageUpload({ imageFile }: { imageFile: File }) {
     console.log(error);
   }
 }
+
+async function compressImage({ imageFile }: { imageFile: File }) {
+  console.log(`originalFile size ${imageFile.size / 1024 / 1024} MB`); // initial size in mb
+  const options = {
+    maxSizeMB: 1,
+    maxWidthOrHeight: 1920,
+    useWebWorker: true,
+    fileType: "image/jpeg",
+  };
+  try {
+    const compressedFile = await imageCompression(imageFile, options);
+    console.log(`compressedFile size ${compressedFile.size / 1024 / 1024} MB`); // processed size in mb
+
+    await uploadToBucket(compressedFile);
+  } catch (error) {
+    console.log(error);
+  }
+}

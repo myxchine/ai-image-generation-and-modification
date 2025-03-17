@@ -3,29 +3,26 @@
 import { useState } from "react";
 import Image from "next/image";
 import { ModifyImage } from "@/server/modify-image";
-import { SpinnerIcon } from "@/components/icons";
-import { GenerateImage } from "@/server/ai";
-import { init } from "next/dist/compiled/webpack/webpack";
+import imageCompression from "browser-image-compression";
+import crypto from "crypto";
 
-async function getBase64FromUrl(url: string): Promise<string> {
-  const response = await fetch(url);
-  const blob = await response.blob();
-
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      // The result will be a data URL like "data:image/jpeg;base64,/9j/4AAQ..."
-      const base64String = reader.result as string;
-      // Remove the data URL prefix to get just the base64 string
-      const base64 = base64String.split(",")[1];
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+async function compressImage({ image }: { image: File }) {
+  console.log(`originalFile size ${image.size / 1024 / 1024} MB`); // initial size in mb
+  const options = {
+    maxSizeMB: 1,
+    maxWidthOrHeight: 1920,
+    useWebWorker: true,
+    fileType: "image/jpeg",
+  };
+  try {
+    const compressedFile = await imageCompression(image, options);
+    console.log(`compressedFile size ${compressedFile.size / 1024 / 1024} MB`); // processed size in mb
+    return compressedFile;
+  } catch (error) {
+    console.log(error);
+    throw new Error("Failed to compress image");
+  }
 }
-
-//"353d7b0aec0c134064364fb9670ef63e.jpg"
 
 export default function ImageGenerator() {
   const [initialImage, setInitialImage] = useState<string | null>(null);
@@ -43,7 +40,7 @@ export default function ImageGenerator() {
     }
 
     setLoading(true);
-    await handleImageUpload({ imageFile: e.target.files[0] });
+    await handleImageUpload({ image: e.target.files[0] });
   };*/
 
   const handleImageSelected = async (
@@ -53,11 +50,11 @@ export default function ImageGenerator() {
       return;
     }
 
-    setFile(e.target.files[0]);
-
-    const localImage = e.target.files[0];
-    const clientSideImageUrl = URL.createObjectURL(localImage);
-    setInitialImage(clientSideImageUrl);
+    const compressedImage = await compressImage({
+      image: e.target.files[0],
+    });
+    setFile(compressedImage);
+    setInitialImage(URL.createObjectURL(compressedImage));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -90,11 +87,9 @@ export default function ImageGenerator() {
 
       {generatedImage && !loading && (
         <div className="flex flex-col gap-4 w-full">
-          <Image
+          <img
             src={generatedImage}
             alt="Generated image"
-            width={500}
-            height={500}
             className="w-full rounded-2xl"
           />
           <a
@@ -170,7 +165,9 @@ export default function ImageGenerator() {
       </form>
 
       {error && (
-        <div className=" px-6 py-4 bg-red-200 text-red-500 rounded-2xl w-full text-center">{error}</div>
+        <div className=" px-6 py-4 bg-red-200 text-red-500 rounded-2xl w-full text-center">
+          {error}
+        </div>
       )}
     </div>
   );
